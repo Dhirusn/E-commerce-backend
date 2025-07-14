@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ProductService.Data.Models;
+using ProductService.Shared;
 
 namespace ProductService.Services
 {
@@ -12,9 +14,18 @@ namespace ProductService.Services
             _context = context;
         }
 
-        public async Task<List<Product>> GetAllAsync()
+       
+        public async Task<PaginatedResult<Product>> GetAllAsync(int pageNumber, int pageSize)
         {
-            return await _context.Products.ToListAsync();
+            var query = _context.Products.AsQueryable();
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PaginatedResult<Product>(items, totalCount, pageNumber, pageSize);
         }
 
         public async Task<Product?> GetByIdAsync(Guid id)

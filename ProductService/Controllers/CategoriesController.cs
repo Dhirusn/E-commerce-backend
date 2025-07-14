@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ProductService.Data.Models;
+using ProductService.Shared;
 
 namespace ProductService.Controllers
 {
@@ -18,16 +18,24 @@ namespace ProductService.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<Result<PaginatedResult<Category>>> GetAll(int pageNumber = 1, int pageSize = 10)
         {
-            var categories = await _context.Categories.ToListAsync();
-            return Ok(categories);
+            var query = _context.Categories.AsQueryable();
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var res = new PaginatedResult<Category>(items, totalCount, pageNumber, pageSize);
+            return Result<PaginatedResult<Category>>.Ok(res, "");
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var category = await _context.Categories.FindAsync(id);
+            var category = await _context.Categories.Include(x=>x.Children).FirstOrDefaultAsync(x => x.Id == id);
             if (category == null) return NotFound();
             return Ok(category);
         }
