@@ -18,7 +18,9 @@ namespace ProductService.Data.Models
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-          //  base.OnModelCreating(modelBuilder);
+            base.OnModelCreating(modelBuilder);
+            
+            // Apply all configurations from assembly
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(ProductDbContext).Assembly);
         }
     }

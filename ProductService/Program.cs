@@ -25,6 +25,11 @@ builder.Services.AddAuthentication(options =>
 {
     options.Authority = "https://dev-zn7kooyuqtsoiajl.us.auth0.com/";
     options.Audience = "https://product-api";
+
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        RoleClaimType = "https://myapp.com/roles"
+    };
 });
 // In Program.cs or Startup.cs
 builder.Services.AddCors(options =>

@@ -1,10 +1,44 @@
+using Microsoft.EntityFrameworkCore;
+using PaymentService.Data;
+using PaymentService.Models;
+using PaymentService.Services;
+using SharedLibraries.Extensions;
+using SharedLibraries.UserServices;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+// Program.cs (before builder.Build())
+builder.Services.AddHttpContextAccessor();
+// Add Entity Framework
+builder.Services.AddDbContext<PaymentDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Add JWT authentication
+builder.Services.AddJwtAuthentication(builder.Configuration);
+
+// Add services
+builder.Services.AddScoped<PaymentService.Services.PaymentService>();
+builder.Services.AddScoped<IUserContextService, UserContextService>();
+
+// Add Stripe settings
+builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
+
+// Add OpenAPI/Swagger
 builder.Services.AddOpenApi();
+builder.Services.AddSwaggerGen();
+
+// Add CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 
 var app = builder.Build();
 
@@ -12,10 +46,15 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
 
+app.UseCors("AllowAll");
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

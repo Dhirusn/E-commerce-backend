@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using ProductService.Data.Models;
+using ProductService.Models;
 using ProductService.Services;
 using ProductService.Shared;
 
@@ -19,22 +20,22 @@ namespace ProductService.Controllers
         [HttpGet("getAll")]
         public async Task<Result<PaginatedResult<Product>>> GetAll(int pageNumber = 1, int pageSize = 10)
         {
-            var products = await _productService.GetAllAsync(pageNumber,pageSize);
-            return Result<PaginatedResult<Product>>.Ok(products,null);
+            var products = await _productService.GetAllAsync(pageNumber, pageSize);
+            return Result<PaginatedResult<Product>>.Ok(products, null);
         }
 
         [HttpGet("GetById/{id}")]
         public async Task<Result<Product>> GetById(Guid id)
         {
             var product = await _productService.GetByIdAsync(id);
-            return product == null ? Result<Product>.Fail("not found","err") : Result<Product>.Ok(product,null);
+            return product == null ? Result<Product>.Fail("not found", "err") : Result<Product>.Ok(product, null);
         }
 
-        [HttpPost]
-        public async Task<IActionResult> Create([FromBody] Product product)
+        [HttpPost("Create")]
+        public async Task<IActionResult> Create([FromBody] ProductCreateDto product)
         {
             var created = await _productService.CreateAsync(product);
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+            return CreatedAtAction(nameof(GetById), new { id = created }, created);
         }
 
         [HttpPut("{id}")]

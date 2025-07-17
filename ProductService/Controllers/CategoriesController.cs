@@ -18,6 +18,7 @@ namespace ProductService.Controllers
         }
 
         [HttpGet]
+        [Authorize]
         public async Task<Result<PaginatedResult<Category>>> GetAll(int pageNumber = 1, int pageSize = 10)
         {
             var query = _context.Categories.AsQueryable();

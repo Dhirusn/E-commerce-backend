@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ProductService.Data.Models;
+using ProductService.Models;
 using ProductService.Shared;
 
 namespace ProductService.Services
@@ -14,7 +15,7 @@ namespace ProductService.Services
             _context = context;
         }
 
-       
+
         public async Task<PaginatedResult<Product>> GetAllAsync(int pageNumber, int pageSize)
         {
             var query = _context.Products.AsQueryable();
@@ -33,11 +34,37 @@ namespace ProductService.Services
             return await _context.Products.FindAsync(id);
         }
 
-        public async Task<Product> CreateAsync(Product product)
+        public async Task<Guid> CreateAsync(ProductCreateDto dto)
         {
-            _context.Products.Add(product);
-            await _context.SaveChangesAsync();
-            return product;
+            try
+            {
+                var categories = await _context.Categories
+        .Where(c => dto.CategoryIds.Contains(c.Id))
+        .ToListAsync();
+
+                var isbrandValidGuid = Guid.TryParse(dto.BrandId, out Guid brandId);
+                var product = new Product
+                {
+                    Title = dto.Title!,
+                    Description = dto.Description,
+                    Price = dto.Price,
+                    ImageUrl = dto.ImageUrl,
+                    Stock = dto.Stock,
+                    BrandId = isbrandValidGuid ? brandId : null,
+                    Categories = categories
+                };
+
+                _context.Products.Add(product);
+                await _context.SaveChangesAsync();
+
+                return product.Id;
+            }
+            catch (Exception ex)
+            {
+
+                throw ex;
+            }
+
         }
 
         public async Task<bool> UpdateAsync(Guid id, Product input)
