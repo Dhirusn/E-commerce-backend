@@ -1,12 +1,7 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
 using ProductService.Data.Models;
-using ProductService.Filters;
-using ProductService.Middleware;
 using ProductService.Services;
-using SharedLibraries;
+using SharedLibraries.Extensions;
 using SharedLibraries.UserServices;
 using StackExchange.Redis;
 
@@ -17,20 +12,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<ProductDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(options =>
-{
-    options.Authority = "https://dev-zn7kooyuqtsoiajl.us.auth0.com/";
-    options.Audience = "https://product-api";
-
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        RoleClaimType = "https://myapp.com/roles"
-    };
-});
 // In Program.cs or Startup.cs
 builder.Services.AddCors(options =>
 {
@@ -42,47 +23,12 @@ builder.Services.AddCors(options =>
               .AllowCredentials(); // Remove this line if you're not using cookies/auth
     });
 });
-// Add services to the container.
-//builder.Services.AddAuthorization(options =>
-//{
-//    options.AddPolicy("AdminOnly", policy =>
-//        policy.RequireClaim("https://dev-zn7kooyuqtsoiajl.us.auth0.com/roles", "Admin"));
-//});
 
-//builder.Services.AddAuth0Authentication(builder.Configuration);
+// 1. Add Authentication & Authorization from shared library
+builder.Services.AddJwtAuthentication(builder.Configuration);
 
-
-builder.Services.AddSwaggerGen(options =>
-{
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "JWT Authorization header using the Bearer scheme."
-    });
-
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] { }
-        }
-    });
-
-    // Optional: Add role-based filtering to Swagger UI
-    options.OperationFilter<RoleBasedAuthorizationOperationFilter>();
-});
-
+// 2. Add Swagger with Authentication
+builder.Services.AddSwaggerWithAuth("Product Service");
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>

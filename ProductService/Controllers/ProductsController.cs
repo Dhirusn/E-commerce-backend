@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using ProductService.Data.Models;
 using ProductService.Models;
 using ProductService.Services;
@@ -31,6 +32,7 @@ namespace ProductService.Controllers
             return product == null ? Result<Product>.Fail("not found", "err") : Result<Product>.Ok(product, null);
         }
 
+        [Authorize]
         [HttpPost("Create")]
         public async Task<IActionResult> Create([FromBody] ProductCreateDto product)
         {

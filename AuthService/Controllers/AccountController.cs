@@ -1,111 +1,54 @@
-﻿using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
-using AuthService.ViewModels;
-using System.Linq;
-using System.Security.Claims;
-using Auth0.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Identity.Data;
-using System.Text.Json;
-using System.Text;
+using AuthService.Common.Interfaces;
+using AuthService.Common.Dtos;
+using Microsoft.AspNetCore.Authorization;
 
-namespace AuthService.Controllers
+namespace AuthService.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class AccountController : ControllerBase
 {
-    public class AccountController : Controller
+    private readonly ILoginService _login;
+
+    public AccountController(ILoginService login) => _login = login;
+    
+    [AllowAnonymous]
+    [HttpPost("register")]
+    public async Task<IActionResult> Register([FromBody] RegisterDto model)
     {
-        public readonly IConfiguration _configuration;
-
-        public AccountController(IConfiguration configuration)
-        {
-            _configuration = configuration;
-        }
-
-        public async Task Login(string returnUrl = "/")
-        {
-            var props = new LoginAuthenticationPropertiesBuilder().WithRedirectUri(returnUrl).Build();
-            await HttpContext.ChallengeAsync(Auth0Constants.AuthenticationScheme, props);
-        }
-
-        [Authorize]
-        public async Task Logout()
-        {
-            var props = new LogoutAuthenticationPropertiesBuilder()
-                .WithRedirectUri(Url.Action("Index", "Home"))
-                .Build();
-
-            await HttpContext.SignOutAsync(Auth0Constants.AuthenticationScheme, props);
-            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        }
-
-        [Authorize]
-        [HttpGet("/account/me")]
-        public IActionResult Me()
-        {
-            var claims = User.Claims.ToDictionary(c => c.Type, c => c.Value);
-            return Ok(new
-            {
-                Name = User.Identity?.Name,
-                Email = claims.GetValueOrDefault("email"),
-                Picture = claims.GetValueOrDefault("picture"),
-                Roles = claims.Where(c => c.Key == "role").Select(c => c.Value).ToList()
-            });
-        }
-        [Authorize]
-        public IActionResult Profile()
-        {
-            return View(new UserProfileViewModel
-            {
-                Name = User.Identity!.Name,
-                EmailAddress = User.Claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value,
-                ProfileImage = User.Claims.FirstOrDefault(c => c.Type == "picture")?.Value
-            });
-        }
-
-
-        /// <summary>
-        /// This is just a helper action to enable you to easily see all claims related to a user. It helps when debugging your
-        /// application to see the in claims populated from the Auth0 ID Token
-        /// </summary>
-        /// <returns></returns>
-        [Authorize]
-        public IActionResult Claims()
-        {
-            return View();
-        }
-
-        public IActionResult AccessDenied()
-        {
-            return View();
-        }
-
-
-        [HttpPost("/account/reset-password")]
-        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest model)
-        {
-            var client = new HttpClient();
-            var domain = _configuration["Auth0:Domain"];
-            var connection = _configuration["Auth0:Connection"]; // usually "Username-Password-Authentication"
-
-            var requestPayload = new
-            {
-                client_id = _configuration["Auth0:ClientId"],
-                email = model.Email,
-                connection = connection
-            };
-
-            var content = new StringContent(JsonSerializer.Serialize(requestPayload), Encoding.UTF8, "application/json");
-            var response = await client.PostAsync($"https://{domain}/dbconnections/change_password", content);
-
-            if (response.IsSuccessStatusCode)
-            {
-                return Ok(new { message = "Reset password email sent." });
-            }
-
-            var error = await response.Content.ReadAsStringAsync();
-            return BadRequest(new { message = "Failed to send reset email", error });
-        }
-
+        var res = await _login.RegisterAsync(model);
+        if (!res.Succeeded) return BadRequest(res.Errors.Select(e => e.Description));
+        return Ok();
     }
+    [AllowAnonymous]
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginDto model)
+    {
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var (success, access, refresh, err) = await _login.LoginAsync(model.Email, model.Password, ip);
+        if (!success) return Unauthorized(err);
+        return Ok(new { accessToken = access, refreshToken = refresh });
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshDto model)
+    {
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var (success, access, refresh, err) = await _login.RefreshAsync(model.RefreshToken, ip);
+        if (!success) return Unauthorized(err);
+        return Ok(new { accessToken = access, refreshToken = refresh });
+    }
+
+    [HttpPost("revoke")]
+    public async Task<IActionResult> Revoke([FromBody] RevokeDto model)
+    {
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var ok = await _login.RevokeRefreshTokenAsync(model.RefreshToken, ip);
+        if (!ok) return NotFound();
+        return Ok();
+    }
+    public record LoginDto(string Email, string Password);
+    public record RefreshDto(string RefreshToken);
+    public record RevokeDto(string RefreshToken);
 }
