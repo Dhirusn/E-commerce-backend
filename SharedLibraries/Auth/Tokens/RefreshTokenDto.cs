@@ -1,5 +1,3 @@
-using System;
-
 namespace Shared.Library.Tokens
 {
     public class RefreshTokenDto
